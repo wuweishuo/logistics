@@ -3,19 +3,18 @@ package main
 import (
 	"context"
 	"flag"
+	"github.com/jinzhu/configor"
+	"github.com/rs/zerolog/log"
 	"logistics/config"
 	"logistics/fetcher"
 	_ "logistics/fetcher/impl"
 	"logistics/model"
 	"sort"
-
-	"github.com/jinzhu/configor"
-	"github.com/rs/zerolog/log"
 )
 
 func main() {
 	var countryCode string
-	flag.StringVar(&countryCode, "country_code", "cn", "input your destination")
+	flag.StringVar(&countryCode, "country_code", "AD", "input your destination")
 	var weight float64
 	flag.Float64Var(&weight, "weight", 1, "input your weight")
 	var configFile string
