@@ -3,13 +3,8 @@ package impl
 import (
 	"context"
 	"logistics/config"
-	"logistics/fetcher"
 	"logistics/model"
 )
-
-func init() {
-	fetcher.Register("mock", MockFetcher{})
-}
 
 type MockFetcher struct{}
 

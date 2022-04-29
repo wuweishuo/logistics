@@ -7,16 +7,11 @@ import (
 	"github.com/pkg/errors"
 	"io/ioutil"
 	"logistics/config"
-	"logistics/fetcher"
 	"logistics/model"
 	"net/http"
 	"net/url"
 	"strings"
 )
-
-func init() {
-	fetcher.Register("san_tong", NewSanTongFetcher())
-}
 
 // SanTongFetcher [三通订单系统](http://119.23.34.110:8088/)
 type SanTongFetcher struct {

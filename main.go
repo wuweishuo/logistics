@@ -4,39 +4,79 @@ import (
 	"context"
 	"flag"
 	"github.com/jinzhu/configor"
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog/pkgerrors"
 	"logistics/config"
 	"logistics/fetcher"
 	_ "logistics/fetcher/impl"
 	"logistics/model"
+	"os"
 	"sort"
 )
 
 func main() {
+	log.Logger = zerolog.New(os.Stderr).With().Timestamp().Stack().Caller().Logger()
+	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
+
 	var countryCode string
 	flag.StringVar(&countryCode, "country_code", "AD", "input your destination")
 	var weight float64
 	flag.Float64Var(&weight, "weight", 1, "input your weight")
 	var configFile string
 	flag.StringVar(&configFile, "config_file", "./config/config.yml", "input your config file")
+
 	ctx := context.Background()
 	var c config.Config
 	err := configor.Load(&c, configFile)
 	if err != nil {
 		panic(err)
 	}
+
 	var res []model.Logistics
-	for name, f := range fetcher.GetRegistry() {
-		if _, ok := c.Logins[name]; !ok {
-			log.Error().Msgf("%s hasn't config", name)
+	type fetcherResult struct {
+		name string
+		data []model.Logistics
+		err  error
+	}
+	channel := make(chan fetcherResult)
+	for name := range fetcher.GetRegistry() {
+		go func(name string) {
+			defer func() {
+				err := recover()
+				if err != nil {
+					channel <- fetcherResult{
+						name: name,
+						data: nil,
+						err:  errors.Errorf("panic:%+v", err),
+					}
+				}
+
+			}()
+			if _, ok := c.Logins[name]; !ok {
+				channel <- fetcherResult{
+					name: name,
+					data: nil,
+					err:  errors.Errorf("%s hasn't config", name),
+				}
+				return
+			}
+			data, err := fetcher.GetRegistry()[name].Fetch(ctx, c.Logins[name], countryCode, weight)
+			channel <- fetcherResult{
+				name: name,
+				data: data,
+				err:  err,
+			}
+		}(name)
+	}
+	for i := 0; i < len(fetcher.GetRegistry()); i++ {
+		result := <-channel
+		if result.err != nil {
+			log.Err(result.err).Stack().Msg("")
 			continue
 		}
-		data, err := f.Fetch(ctx, c.Logins[name], countryCode, weight)
-		if err != nil {
-			log.Err(err).Msgf("%s has err", name)
-			continue
-		}
-		res = append(res, data...)
+		res = append(res, result.data...)
 	}
 	sort.Slice(res, func(i, j int) bool {
 		return res[i].Total < res[j].Total
