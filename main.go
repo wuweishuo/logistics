@@ -3,17 +3,21 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/jinzhu/configor"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
-	"github.com/rs/zerolog/pkgerrors"
+	"fmt"
 	"logistics/config"
 	"logistics/fetcher"
 	_ "logistics/fetcher/impl"
 	"logistics/model"
 	"os"
 	"sort"
+	"strconv"
+
+	"github.com/jinzhu/configor"
+	"github.com/olekukonko/tablewriter"
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog/pkgerrors"
 )
 
 func main() {
@@ -81,5 +85,24 @@ func main() {
 	sort.Slice(res, func(i, j int) bool {
 		return res[i].Total < res[j].Total
 	})
-	log.Info().Msgf("out data:%v", res)
+
+	writer := tablewriter.NewWriter(os.Stdout)
+	writer.SetHeader([]string{"来源", "url", "渠道", "重量", "总价", "单价", "运费", "燃油", "其他杂费", "备注"})
+	writer.SetFooter([]string{"", "", "", "", "", "", "", "", "total", strconv.Itoa(len(res))})
+	data := make([][]string, 0, len(res))
+	for _, d := range res {
+		data = append(data, []string{
+			d.Source,
+			d.URL,
+			d.Method,
+			fmt.Sprintf("%v", d.Weight),
+			fmt.Sprintf("%v", d.Total),
+			fmt.Sprintf("%v", d.Price),
+			fmt.Sprintf("%v", d.Fare),
+			fmt.Sprintf("%v", d.Fuel),
+			fmt.Sprintf("%v", d.Other),
+			d.Remark})
+	}
+	writer.AppendBulk(data)
+	writer.Render()
 }

@@ -3,7 +3,7 @@ package model
 type Logistics struct {
 	Source string // 来源
 	URL    string
-	Method string  // 方式
+	Method string  // 渠道
 	Weight float64 // 重量
 	Total  float64 // 总价
 	Price  float64 // 单价
