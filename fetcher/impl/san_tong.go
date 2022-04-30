@@ -37,22 +37,22 @@ func NewSanTongFetcher() *SanTongFetcher {
 	return &SanTongFetcher{
 		client: &http.Client{
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				return http.ErrUseLastResponse
+				if len(via) > 10 {
+					return errors.New("stopped after 10 redirects")
+				}
+				for _, cookie := range req.Response.Cookies() {
+					req.AddCookie(cookie)
+				}
+				return nil
 			},
 		},
 	}
 }
 
 func (s SanTongFetcher) Fetch(ctx context.Context, config config.LoginConfig, countryCode string, weight float64) ([]model.Logistics, error) {
-	resp, err := s.client.PostForm("http://119.23.34.110:8088/default/index/login", url.Values{
-		"userName": []string{config.Username},
-		"userPass": []string{config.Password},
-	})
+	cookies, err := s.getCookies(ctx, config)
 	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-	if resp.StatusCode != http.StatusFound {
-		return nil, errors.New("账号密码错误")
+		return nil, err
 	}
 	req, err := http.NewRequest("POST", "http://119.23.34.110:8088/order/fee-trail/list/page/1/pageSize/20", strings.NewReader(url.Values{
 		"country_code": []string{countryCode},
@@ -63,13 +63,16 @@ func (s SanTongFetcher) Fetch(ctx context.Context, config config.LoginConfig, co
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	for _, cookie := range resp.Cookies() {
+	for _, cookie := range cookies {
 		req.AddCookie(cookie)
 	}
-	resp, err = s.client.Do(req)
+	resp, err := s.client.Do(req)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -94,4 +97,18 @@ func (s SanTongFetcher) Fetch(ctx context.Context, config config.LoginConfig, co
 		})
 	}
 	return res, nil
+}
+
+func (s SanTongFetcher) getCookies(ctx context.Context, config config.LoginConfig) ([]*http.Cookie, error) {
+	resp, err := s.client.PostForm("http://119.23.34.110:8088/default/index/login", url.Values{
+		"userName": []string{config.Username},
+		"userPass": []string{config.Password},
+	})
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	return resp.Request.Cookies(), nil
 }

@@ -52,6 +52,9 @@ func (l LianDiFetcher) Fetch(ctx context.Context, config config.LoginConfig, cou
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	var lianDiResp LianDiResp
 	decoder := json.NewDecoder(resp.Body)
 	err = decoder.Decode(&lianDiResp)
@@ -92,11 +95,9 @@ func (l LianDiFetcher) getToken(ctx context.Context, config config.LoginConfig) 
 	if err != nil {
 		return "", errors.WithStack(err)
 	}
-	//{
-	//	"body":"{\"loginChooseModel\":{\"role\":\"VIP\",\"clientName\":\"广州锦世达货运\",\"roleId\":12,\"userNo\":\"JSDHY\",\"clientNo\":\"GZ-JSDHY\",\"webTitle\":\"深圳市联递国际物流有限公司\",\"stano\":\"GZ\",\"mainType\":2,\"canRecharge\":false,\"lastLoginTime\":\"2022年04月29日\",\"companyId\":119,\"companyNo\":\"LDE\",\"name\":\"深圳市联递国际物流有限公司\",\"userSourceType\":2,\"userType\":2},\"token\":\"9786687f-cd32-4d62-92e0-279ba8c3e959\",\"haveDnyImg\":false}",
-	//	"message":"请求成功",
-	//	"result_code":0
-	//}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	var loginMsg LianDiResp
 	decoder := json.NewDecoder(resp.Body)
 	err = decoder.Decode(&loginMsg)
