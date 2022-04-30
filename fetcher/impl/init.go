@@ -9,4 +9,5 @@ func init() {
 	fetcher.Register("zhongfei", NewZhongFeiFetcher())
 	fetcher.Register("junya", NewJunYaFetcher())
 	fetcher.Register("weisuyi", NewWeiSuYiFetcher())
+	fetcher.Register("hb", NewHBFetcher())
 }
