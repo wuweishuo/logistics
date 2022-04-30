@@ -7,4 +7,6 @@ func init() {
 	fetcher.Register("santong", NewSanTongFetcher())
 	fetcher.Register("liandi", NewLianDiFetcher())
 	fetcher.Register("zhongfei", NewZhongFeiFetcher())
+	fetcher.Register("junya", NewJunYaFetcher())
+	fetcher.Register("weisuyi", NewWeiSuYiFetcher())
 }

@@ -15,11 +15,19 @@ import (
 )
 
 type ZhongFeiFetcher struct {
-	client *http.Client
+	source   string
+	url      string
+	signUrl  string
+	queryUrl string
+	client   *http.Client
 }
 
 func NewZhongFeiFetcher() *ZhongFeiFetcher {
 	return &ZhongFeiFetcher{
+		source:   "中飞国际",
+		url:      "http://193.112.219.243:8082/index.htm",
+		signUrl:  "http://193.112.219.243:8082/signin.htm",
+		queryUrl: "http://193.112.219.243:8082/priceSearchQuery.htm",
 		client: &http.Client{
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				if len(via) > 10 {
@@ -39,7 +47,7 @@ func (z ZhongFeiFetcher) Fetch(ctx context.Context, config config.LoginConfig, c
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest("POST", "http://193.112.219.243:8082/priceSearchQuery.htm", strings.NewReader(url.Values{
+	req, err := http.NewRequest("POST", z.queryUrl, strings.NewReader(url.Values{
 		"country":   []string{countryCode},
 		"cargoType": []string{"P"},
 		"weight":    []string{fmt.Sprintf("%v", weight)},
@@ -100,8 +108,8 @@ func (z ZhongFeiFetcher) Fetch(ctx context.Context, config config.LoginConfig, c
 				return
 			}
 			res = append(res, model.Logistics{
-				Source: "中飞国际",
-				URL:    "http://193.112.219.243:8082/priceSearchQuery.htm",
+				Source: z.source,
+				URL:    z.url,
 				Method: td[0],
 				Weight: weight,
 				Total:  total,
@@ -118,7 +126,7 @@ func (z ZhongFeiFetcher) Fetch(ctx context.Context, config config.LoginConfig, c
 }
 
 func (z ZhongFeiFetcher) getCookies(ctx context.Context, config config.LoginConfig) ([]*http.Cookie, error) {
-	resp, err := z.client.PostForm("http://193.112.219.243:8082/signin.htm", url.Values{
+	resp, err := z.client.PostForm(z.signUrl, url.Values{
 		"username": []string{config.Username},
 		"password": []string{config.Password},
 	})
