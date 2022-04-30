@@ -1,8 +1,8 @@
 package impl
 
 import (
-	"github.com/pkg/errors"
 	"net/http"
+	"net/http/cookiejar"
 )
 
 type JunYaFetcher struct {
@@ -10,6 +10,7 @@ type JunYaFetcher struct {
 }
 
 func NewJunYaFetcher() *JunYaFetcher {
+	jar, _ := cookiejar.New(nil)
 	return &JunYaFetcher{
 		ZhongFeiFetcher{
 			source:   "广州骏亚供应链有限公司",
@@ -17,15 +18,7 @@ func NewJunYaFetcher() *JunYaFetcher {
 			signUrl:  "http://193.112.163.140:8082/signin.htm",
 			queryUrl: "http://193.112.163.140:8082/priceSearchWeb.htm",
 			client: &http.Client{
-				CheckRedirect: func(req *http.Request, via []*http.Request) error {
-					if len(via) > 10 {
-						return errors.New("stopped after 10 redirects")
-					}
-					for _, cookie := range req.Response.Cookies() {
-						req.AddCookie(cookie)
-					}
-					return nil
-				},
+				Jar: jar,
 			},
 		},
 	}

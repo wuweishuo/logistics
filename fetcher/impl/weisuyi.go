@@ -1,8 +1,8 @@
 package impl
 
 import (
-	"github.com/pkg/errors"
 	"net/http"
+	"net/http/cookiejar"
 )
 
 type WeiSuYiFetcher struct {
@@ -10,6 +10,7 @@ type WeiSuYiFetcher struct {
 }
 
 func NewWeiSuYiFetcher() *WeiSuYiFetcher {
+	jar, _ := cookiejar.New(nil)
 	return &WeiSuYiFetcher{
 		ZhongFeiFetcher{
 			source:   "威速易供应链管理",
@@ -17,15 +18,7 @@ func NewWeiSuYiFetcher() *WeiSuYiFetcher {
 			signUrl:  "http://www.gdwse.com:8082/signin.htm",
 			queryUrl: "http://www.gdwse.com:8082/priceSearchQuery.htm",
 			client: &http.Client{
-				CheckRedirect: func(req *http.Request, via []*http.Request) error {
-					if len(via) > 10 {
-						return errors.New("stopped after 10 redirects")
-					}
-					for _, cookie := range req.Response.Cookies() {
-						req.AddCookie(cookie)
-					}
-					return nil
-				},
+				Jar: jar,
 			},
 		},
 	}

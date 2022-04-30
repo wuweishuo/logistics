@@ -9,6 +9,7 @@ import (
 	"logistics/config"
 	"logistics/model"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"strconv"
 	"strings"
@@ -23,27 +24,20 @@ type ZhongFeiFetcher struct {
 }
 
 func NewZhongFeiFetcher() *ZhongFeiFetcher {
+	jar, _ := cookiejar.New(nil)
 	return &ZhongFeiFetcher{
 		source:   "中飞国际",
 		url:      "http://193.112.219.243:8082/index.htm",
 		signUrl:  "http://193.112.219.243:8082/signin.htm",
 		queryUrl: "http://193.112.219.243:8082/priceSearchQuery.htm",
 		client: &http.Client{
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				if len(via) > 10 {
-					return errors.New("stopped after 10 redirects")
-				}
-				for _, cookie := range req.Response.Cookies() {
-					req.AddCookie(cookie)
-				}
-				return nil
-			},
+			Jar: jar,
 		},
 	}
 }
 
 func (z ZhongFeiFetcher) Fetch(ctx context.Context, config config.LoginConfig, countryCode string, weight float64) ([]model.Logistics, error) {
-	cookies, err := z.getCookies(ctx, config)
+	err := z.login(ctx, config)
 	if err != nil {
 		return nil, err
 	}
@@ -56,9 +50,6 @@ func (z ZhongFeiFetcher) Fetch(ctx context.Context, config config.LoginConfig, c
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	for _, cookie := range cookies {
-		req.AddCookie(cookie)
-	}
 	resp, err := z.client.Do(req)
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -125,16 +116,16 @@ func (z ZhongFeiFetcher) Fetch(ctx context.Context, config config.LoginConfig, c
 	return res, nil
 }
 
-func (z ZhongFeiFetcher) getCookies(ctx context.Context, config config.LoginConfig) ([]*http.Cookie, error) {
+func (z ZhongFeiFetcher) login(ctx context.Context, config config.LoginConfig) error {
 	resp, err := z.client.PostForm(z.signUrl, url.Values{
 		"username": []string{config.Username},
 		"password": []string{config.Password},
 	})
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return errors.WithStack(err)
 	}
 	defer func() {
 		_ = resp.Body.Close()
 	}()
-	return resp.Request.Cookies(), nil
+	return nil
 }

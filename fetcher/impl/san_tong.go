@@ -9,6 +9,7 @@ import (
 	"logistics/config"
 	"logistics/model"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"strings"
 )
@@ -34,23 +35,16 @@ type SanTongResp struct {
 }
 
 func NewSanTongFetcher() *SanTongFetcher {
+	jar, _ := cookiejar.New(nil)
 	return &SanTongFetcher{
 		client: &http.Client{
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				if len(via) > 10 {
-					return errors.New("stopped after 10 redirects")
-				}
-				for _, cookie := range req.Response.Cookies() {
-					req.AddCookie(cookie)
-				}
-				return nil
-			},
+			Jar: jar,
 		},
 	}
 }
 
 func (s SanTongFetcher) Fetch(ctx context.Context, config config.LoginConfig, countryCode string, weight float64) ([]model.Logistics, error) {
-	cookies, err := s.getCookies(ctx, config)
+	err := s.login(ctx, config)
 	if err != nil {
 		return nil, err
 	}
@@ -63,9 +57,6 @@ func (s SanTongFetcher) Fetch(ctx context.Context, config config.LoginConfig, co
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	for _, cookie := range cookies {
-		req.AddCookie(cookie)
-	}
 	resp, err := s.client.Do(req)
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -99,16 +90,16 @@ func (s SanTongFetcher) Fetch(ctx context.Context, config config.LoginConfig, co
 	return res, nil
 }
 
-func (s SanTongFetcher) getCookies(ctx context.Context, config config.LoginConfig) ([]*http.Cookie, error) {
+func (s SanTongFetcher) login(ctx context.Context, config config.LoginConfig) error {
 	resp, err := s.client.PostForm("http://119.23.34.110:8088/default/index/login", url.Values{
 		"userName": []string{config.Username},
 		"userPass": []string{config.Password},
 	})
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return errors.WithStack(err)
 	}
 	defer func() {
 		_ = resp.Body.Close()
 	}()
-	return resp.Request.Cookies(), nil
+	return nil
 }
