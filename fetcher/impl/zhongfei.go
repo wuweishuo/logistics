@@ -66,7 +66,7 @@ func (z ZhongFeiFetcher) Fetch(ctx context.Context, config config.LoginConfig, c
 		if i%2 == 0 {
 			var td []string
 			selection.Find("td").Each(func(i int, selection *goquery.Selection) {
-				td = append(td, selection.Text())
+				td = append(td, strings.TrimSpace(selection.Text()))
 			})
 			weight, err := strconv.ParseFloat(td[2], 10)
 			if err != nil {
@@ -110,7 +110,7 @@ func (z ZhongFeiFetcher) Fetch(ctx context.Context, config config.LoginConfig, c
 				Other:  other,
 			})
 		} else {
-			res[len(res)-1].Remark = selection.Find("td").Text()
+			res[len(res)-1].Remark = strings.TrimSpace(selection.Find("td").Text())
 		}
 	})
 	return res, nil

@@ -50,30 +50,38 @@ func (b BailinHuaHuiFetcher) Fetch(ctx context.Context, config config.LoginConfi
 		return nil, errors.WithStack(err)
 	}
 	var res []model.Logistics
+	var notFoundRecord bool
 	reader.Find(".ks_dl_table1").Each(func(i int, selection *goquery.Selection) {
+		if notFoundRecord {
+			return
+		}
 		var td []string
 		selection.Find("dd").Each(func(i int, selection *goquery.Selection) {
-			td = append(td, selection.Text())
+			td = append(td, strings.TrimSpace(selection.Text()))
 		})
-		weight, err := strconv.ParseFloat(strings.TrimSpace(td[1]), 10)
+		if td[0] == "无记录" {
+			notFoundRecord = true
+			return
+		}
+		weight, err := strconv.ParseFloat(td[1], 10)
 		if err != nil {
 			log.Err(errors.WithStack(err)).Msgf("%s has err", b.source)
 			return
 		}
 		var total, price float64
 		if b.hasPrice {
-			total, err = strconv.ParseFloat(strings.TrimSpace(td[3]), 10)
+			total, err = strconv.ParseFloat(td[3], 10)
 			if err != nil {
 				log.Err(errors.WithStack(err)).Msgf("%s has err", b.source)
 				return
 			}
-			price, err = strconv.ParseFloat(strings.TrimSpace(td[2]), 10)
+			price, err = strconv.ParseFloat(td[2], 10)
 			if err != nil {
 				log.Err(errors.WithStack(err)).Msgf("%s has err", b.source)
 				return
 			}
 		} else {
-			total, err = strconv.ParseFloat(strings.TrimSpace(td[2]), 10)
+			total, err = strconv.ParseFloat(td[2], 10)
 			if err != nil {
 				log.Err(errors.WithStack(err)).Msgf("%s has err", b.source)
 				return

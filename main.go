@@ -25,7 +25,7 @@ func main() {
 	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 
 	var countryCode string
-	flag.StringVar(&countryCode, "country_code", "AU", "input your destination")
+	flag.StringVar(&countryCode, "country_code", "US", "input your destination")
 	var weight float64
 	flag.Float64Var(&weight, "weight", 1, "input your weight")
 	var configFile string

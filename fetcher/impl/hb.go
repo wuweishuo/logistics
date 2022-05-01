@@ -58,53 +58,59 @@ func (h HBFetcher) Fetch(ctx context.Context, config config.LoginConfig, country
 		if i%2 != 0 {
 			var td []string
 			selection.Find("td").Each(func(i int, selection *goquery.Selection) {
-				td = append(td, selection.Text())
+				td = append(td, strings.TrimSpace(selection.Text()))
 			})
 			if td[0] == "暂无记录" {
 				notFoundRecord = true
 				return
 			}
-			total, err := strconv.ParseFloat(strings.TrimSpace(strings.TrimRight(td[9], "RMB")), 10)
+			total, err := h.parseFloat(ctx, strings.TrimRight(td[9], " RMB"))
 			if err != nil {
-				log.Err(errors.WithStack(err)).Msg("")
 				return
 			}
-			price, err := strconv.ParseFloat(td[4], 10)
+			fare, err := h.parseFloat(ctx, td[4])
 			if err != nil {
-				log.Err(errors.WithStack(err)).Msg("")
 				return
 			}
-			fare, err := strconv.ParseFloat(td[4], 10)
+			fuel, err := h.parseFloat(ctx, td[5])
 			if err != nil {
-				log.Err(errors.WithStack(err)).Msg("")
 				return
 			}
-			fuel, err := strconv.ParseFloat(td[5], 10)
+			other, err := h.parseFloat(ctx, td[7])
 			if err != nil {
-				log.Err(errors.WithStack(err)).Msg("")
 				return
 			}
-			other, err := strconv.ParseFloat(td[7], 10)
+			queryWeight, err := h.parseFloat(ctx, strings.TrimRight(td[8], " KG"))
 			if err != nil {
-				log.Err(errors.WithStack(err)).Msg("")
 				return
 			}
 			res = append(res, model.Logistics{
 				Source: "广州中帆国际业务管理系统",
 				URL:    "http://gzzf.rtb56.com/usercenter/index.aspx",
 				Method: td[2],
-				Weight: weight,
+				Weight: queryWeight,
 				Total:  total,
-				Price:  price,
 				Fare:   fare,
 				Fuel:   fuel,
 				Other:  other,
 			})
 		} else {
-			res[len(res)-1].Remark = selection.Find("td").Text()
+			res[len(res)-1].Remark = strings.TrimSpace(selection.Find("td").Text())
 		}
 	})
 	return res, nil
+}
+
+func (h HBFetcher) parseFloat(ctx context.Context, str string) (float64, error) {
+	if str == "-" {
+		return 0, nil
+	}
+	float, err := strconv.ParseFloat(str, 10)
+	if err != nil {
+		log.Err(errors.WithStack(err)).Msg("")
+		return 0, errors.WithStack(err)
+	}
+	return float, nil
 }
 
 func (h HBFetcher) getParameters(ctx context.Context, countryCode string, weight float64) (url.Values, error) {
