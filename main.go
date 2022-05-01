@@ -25,7 +25,7 @@ func main() {
 	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 
 	var countryCode string
-	flag.StringVar(&countryCode, "country_code", "AD", "input your destination")
+	flag.StringVar(&countryCode, "country_code", "AU", "input your destination")
 	var weight float64
 	flag.Float64Var(&weight, "weight", 1, "input your weight")
 	var configFile string
@@ -77,7 +77,7 @@ func main() {
 	for i := 0; i < len(fetcher.GetRegistry()); i++ {
 		result := <-channel
 		if result.err != nil {
-			log.Err(result.err).Stack().Msg("")
+			log.Err(result.err).Stack().Msgf("%s has err", result.name)
 			continue
 		}
 		res = append(res, result.data...)
@@ -101,7 +101,8 @@ func main() {
 			fmt.Sprintf("%v", d.Fare),
 			fmt.Sprintf("%v", d.Fuel),
 			fmt.Sprintf("%v", d.Other),
-			d.Remark})
+			"",
+		})
 	}
 	writer.AppendBulk(data)
 	writer.Render()
