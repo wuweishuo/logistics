@@ -15,4 +15,9 @@ func init() {
 	fetcher.Register("ksd", NewKsdFetcher())
 	fetcher.Register("swd", NewSwdFetcher())
 	fetcher.Register("xf", NewXfFetcher())
+	//fetcher.Register("cx", NewCXFetcher())
+	//fetcher.Register("th", NewTHFetcher())
+	fetcher.Register("szxy", NewSZXYFetcher())
+	//fetcher.Register("zwjy", NewZWJYFetcher())
+	//fetcher.Register("zfqx", NewZFQXFetcher())
 }
