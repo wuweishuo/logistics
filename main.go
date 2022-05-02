@@ -38,13 +38,15 @@ func main() {
 	flag.Float64Var(&weight, "weight", 1, "input your weight")
 	var configFile string
 	flag.StringVar(&configFile, "configFile", "./config/config.yml", "input your config file")
-	flag.Parse()
+	var sourceStr string
+	flag.StringVar(&sourceStr, "sources", "", "input your source")
 	flag.Parse()
 	switch cmd {
 	case "listCountry":
 		listCountry(countryName)
 	case "query":
-		query(countryCode, weight, configFile)
+		sources := strings.Split(sourceStr, ",")
+		query(countryCode, weight, configFile, sources)
 	default:
 		log.Info().Msg("-c option [listCountry, query]")
 	}
@@ -67,7 +69,7 @@ func listCountry(countryName string) {
 	writer.Render()
 }
 
-func query(countryCode string, weight float64, configFile string) {
+func query(countryCode string, weight float64, configFile string, sources []string) {
 	startTime := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -129,13 +131,23 @@ func query(countryCode string, weight float64, configFile string) {
 			}
 		}(ctx)
 	}
-
+	var count int
 	for name := range fetcher.GetRegistry() {
-		taskChannel <- name
+		if len(sources) != 0 {
+			for _, source := range sources {
+				if source == name {
+					taskChannel <- name
+					count++
+				}
+			}
+		} else {
+			taskChannel <- name
+			count++
+		}
 	}
 	close(taskChannel)
 	var errorName []string
-	for i := 0; i < len(fetcher.GetRegistry()); i++ {
+	for i := 0; i < count; i++ {
 		select {
 		case result := <-channel:
 			if result.err != nil {
