@@ -45,7 +45,10 @@ func main() {
 	case "listCountry":
 		listCountry(countryName)
 	case "query":
-		sources := strings.Split(sourceStr, ",")
+		var sources []string
+		if sourceStr != "" {
+			sources = strings.Split(sourceStr, ",")
+		}
 		query(countryCode, weight, configFile, sources)
 	default:
 		log.Info().Msg("-c option [listCountry, query]")
@@ -81,9 +84,10 @@ func query(countryCode string, weight float64, configFile string, sources []stri
 
 	var res []model.Logistics
 	type fetcherResult struct {
-		name string
-		data []model.Logistics
-		err  error
+		name      string
+		data      []model.Logistics
+		err       error
+		startTime time.Time
 	}
 	channel := make(chan fetcherResult)
 	taskChannel := make(chan string, len(fetcher.GetRegistry()))
@@ -102,26 +106,28 @@ func query(countryCode string, weight float64, configFile string, sources []stri
 							err := recover()
 							if err != nil {
 								channel <- fetcherResult{
-									name: name,
-									data: nil,
-									err:  errors.Errorf("panic:%+v", err),
+									name:      name,
+									data:      nil,
+									err:       errors.Errorf("panic:%+v", err),
+									startTime: startTime,
 								}
 							}
-							log.Info().Msgf("%s cost:%v", name, time.Since(startTime).Seconds())
 						}()
 						if _, ok := c.Logins[name]; !ok {
 							channel <- fetcherResult{
-								name: name,
-								data: nil,
-								err:  errors.Errorf("%s hasn't config", name),
+								name:      name,
+								data:      nil,
+								err:       errors.Errorf("%s hasn't config", name),
+								startTime: startTime,
 							}
 							return
 						}
 						data, err := fetcher.GetRegistry()[name].Fetch(ctx, c.Logins[name], countryCode, weight)
 						channel <- fetcherResult{
-							name: name,
-							data: data,
-							err:  err,
+							name:      name,
+							data:      data,
+							err:       err,
+							startTime: startTime,
 						}
 					}(name)
 				case <-ctx.Done():
@@ -132,17 +138,20 @@ func query(countryCode string, weight float64, configFile string, sources []stri
 		}(ctx)
 	}
 	var count int
+	names := make(map[string]bool)
 	for name := range fetcher.GetRegistry() {
 		if len(sources) != 0 {
 			for _, source := range sources {
 				if source == name {
 					taskChannel <- name
 					count++
+					names[name] = true
 				}
 			}
 		} else {
 			taskChannel <- name
 			count++
+			names[name] = true
 		}
 	}
 	close(taskChannel)
@@ -150,13 +159,17 @@ func query(countryCode string, weight float64, configFile string, sources []stri
 	for i := 0; i < count; i++ {
 		select {
 		case result := <-channel:
+			delete(names, result.name)
 			if result.err != nil {
 				errorName = append(errorName, result.name)
-				log.Err(result.err).Stack().Msgf("num:%d name:%s has err", i, result.name)
+				log.Err(result.err).Stack().Msgf("num:%d name:%s has err, cost time:%v s", i, result.name, time.Since(result.startTime).Seconds())
 				continue
 			}
-			res = append(res, result.data...)
-			log.Info().Msgf("num:%d name:%s success", i, result.name)
+			for _, data := range result.data {
+				data.Source = result.name
+				res = append(res, data)
+			}
+			log.Info().Msgf("num:%d name:%s success,cost time:%v s", i, result.name, time.Since(result.startTime).Seconds())
 		case <-ctx.Done():
 			log.Info().Msgf("num:%d timeout", i)
 			break
@@ -166,13 +179,20 @@ func query(countryCode string, weight float64, configFile string, sources []stri
 	sort.Slice(res, func(i, j int) bool {
 		return res[i].Total < res[j].Total
 	})
+	var timeout []string
+	for name := range names {
+		timeout = append(timeout, name)
+	}
 
 	writer := tablewriter.NewWriter(os.Stdout)
 	writer.SetHeader([]string{"来源", "url", "渠道", "重量", "总价", "单价", "运费", "燃油", "其他杂费", "备注"})
-	writer.SetFooter([]string{"", "", "", "",
-		"errors", fmt.Sprintf("%v", len(errorName)),
+	writer.SetFooter([]string{
+		"", "",
+		"timeout", strings.Join(timeout, ","),
+		"errors", strings.Join(errorName, ","),
 		"cost_time", fmt.Sprintf("%vs", time.Since(startTime).Seconds()),
-		"total", strconv.Itoa(len(res))})
+		"total", strconv.Itoa(len(res)),
+	})
 	data := make([][]string, 0, len(res))
 	for _, d := range res {
 		data = append(data, []string{

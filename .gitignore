@@ -12,6 +12,7 @@
 *.out
 
 .idea
+bin
 
 config/config.test.yml
 
