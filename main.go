@@ -11,6 +11,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/jinzhu/configor"
 	"github.com/olekukonko/tablewriter"
@@ -47,6 +48,7 @@ func main() {
 	channel := make(chan fetcherResult)
 	for name := range fetcher.GetRegistry() {
 		go func(name string) {
+			startTime := time.Now()
 			defer func() {
 				err := recover()
 				if err != nil {
@@ -56,7 +58,7 @@ func main() {
 						err:  errors.Errorf("panic:%+v", err),
 					}
 				}
-
+				log.Info().Msgf("%s cost:%v", name, time.Since(startTime).Seconds())
 			}()
 			if _, ok := c.Logins[name]; !ok {
 				channel <- fetcherResult{
