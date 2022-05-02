@@ -40,7 +40,7 @@ func init() {
 	fetcher.Register("jlty", NewJLTYFetcher())
 	fetcher.Register("jre", NewJRFetcher())
 	fetcher.Register("lmt", NewLMTFetcher())
-	fetcher.Register("tle", NewTLEFetcher())
+	fetcher.Register("tln", NewTLNFetcher())
 	fetcher.Register("yht", NewYHTFetcher())
 	fetcher.Register("zfe", NewZFEFetcher())
 
