@@ -6,6 +6,7 @@ func init() {
 	fetcher.Register("mock", MockFetcher{})
 	fetcher.Register("santong", NewSanTongFetcher())
 	fetcher.Register("hb", NewHBFetcher())
+	fetcher.Register("httx", NewHTTXFetcher())
 
 	// k5 不需登陆
 	fetcher.Register("blhh", NewBailinHuaHuiFetcher())

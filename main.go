@@ -22,7 +22,7 @@ import (
 )
 
 func main() {
-	log.Logger = zerolog.New(os.Stderr).With().Timestamp().Stack().Caller().Logger()
+	log.Logger = zerolog.New(zerolog.NewConsoleWriter()).With().Timestamp().Stack().Caller().Logger()
 	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 
 	var countryCode string
