@@ -57,6 +57,11 @@ func (z ZhongFeiFetcher) Fetch(ctx context.Context, config config.LoginConfig, c
 	defer func() {
 		_ = resp.Body.Close()
 	}()
+	//POST http://193.112.219.243:8082/priceSearchQuery.htm
+	//GET http://111.230.211.49:8082/login.htm
+	if resp.Request.Method == http.MethodGet {
+		return nil, errors.New("登录失败")
+	}
 	reader, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
 		return nil, errors.WithStack(err)

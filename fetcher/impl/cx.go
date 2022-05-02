@@ -65,6 +65,11 @@ func (c CXFetcher) Fetch(ctx context.Context, config config.LoginConfig, country
 	defer func() {
 		_ = resp.Body.Close()
 	}()
+	// POST http://cx.kingtrans.cn/nclient/CClientPrice
+	// GET http://csy.kingtrans.cn/client.jsp
+	if resp.Request.Method == http.MethodGet {
+		return nil, errors.New("登录失败")
+	}
 	reader, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
 		return nil, errors.WithStack(err)
