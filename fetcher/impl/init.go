@@ -40,4 +40,11 @@ func init() {
 	fetcher.Register("tle", NewTLEFetcher())
 	fetcher.Register("yht", NewYHTFetcher())
 	fetcher.Register("zfe", NewZFEFetcher())
+
+	// ItDiDa
+	fetcher.Register("yd", NewYDFetcher())
+	fetcher.Register("cs", NewCSFetcher())
+	fetcher.Register("jst", NewJSTFetcher())
+	fetcher.Register("lkl", NewLKLFetcher())
+	fetcher.Register("qhzx", NewQHZXFetcher())
 }
