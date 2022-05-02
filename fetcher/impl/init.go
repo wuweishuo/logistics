@@ -20,6 +20,7 @@ func init() {
 	fetcher.Register("szxy", NewSZXYFetcher())
 	fetcher.Register("zwjy", NewZWJYFetcher())
 	fetcher.Register("zfqx", NewZFQXFetcher())
+	fetcher.Register("csy", NewCSYFetcher())
 
 	// 华磊科技
 	fetcher.Register("zhongfei", NewZhongFeiFetcher())
@@ -30,6 +31,7 @@ func init() {
 	fetcher.Register("swl", NewSWLFetcher())
 	fetcher.Register("tl", NewTLFetcher())
 	fetcher.Register("ys", NewYSFetcher())
+	fetcher.Register("wj", NewWJFetcher())
 
 	// i-oms
 	fetcher.Register("lde", NewLDEFetcher())
