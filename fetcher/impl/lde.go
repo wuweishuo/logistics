@@ -11,14 +11,30 @@ import (
 	"net/url"
 )
 
-// LianDiFetcher 联递国际物流，https://www.i-oms.cn/#/tmslogin?companyNo=lde
-type LianDiFetcher struct {
-	client *http.Client
+// IOMSFetcher 联递国际物流，https://www.i-oms.cn/#/tmslogin?companyNo=lde
+type LDEFetcher struct {
+	IOMSFetcher
 }
 
-func NewLianDiFetcher() *LianDiFetcher {
-	return &LianDiFetcher{
-		client: http.DefaultClient,
+type IOMSFetcher struct {
+	source    string
+	url       string
+	companyNo string
+	client    *http.Client
+}
+
+func NewLDEFetcher() *LDEFetcher {
+	return &LDEFetcher{
+		NewIOMSFetcher("LDE"),
+	}
+}
+
+func NewIOMSFetcher(companyNo string) IOMSFetcher {
+	return IOMSFetcher{
+		source:    companyNo,
+		url:       fmt.Sprintf("https://www.i-oms.cn/#/tmslogin?companyNo=%s", companyNo),
+		companyNo: companyNo,
+		client:    http.DefaultClient,
 	}
 }
 
@@ -40,14 +56,14 @@ type LianDiQueryData struct {
 	} `json:"datas"`
 }
 
-func (l LianDiFetcher) Fetch(ctx context.Context, config config.LoginConfig, countryCode string, weight float64) ([]model.Logistics, error) {
+func (l IOMSFetcher) Fetch(ctx context.Context, config config.LoginConfig, countryCode string, weight float64) ([]model.Logistics, error) {
 	token, err := l.getToken(ctx, config)
 	if err != nil {
 		return nil, err
 	}
 	resp, err := l.client.PostForm("https://www.i-oms.cn/oms-web/findQuotes/1.0", url.Values{
 		"head": []string{fmt.Sprintf("{\"appid\":\"LeonPC\",\"device_id\":\"Leon\",\"command\":\"findQuotes\",\"version\":\"1.0\",\"token\":\"%s\",\"sign\":\"\",\"encrypt_type\":0}", token)},
-		"body": []string{fmt.Sprintf("{\"transCategory\":\"\",\"goodsType\":\"\",\"packageType\":\"WPX\",\"goodsTypeName\":\"\",\"dest\":\"%s\",\"payment\":\"\",\"partnerCompanyNo\":\"LDE\",\"clientNo\":\"\",\"postCode\":\"\",\"businessTypes\":\"\",\"declareMethod\":\"其他\",\"weight\":\"%v\",\"long\":0,\"width\":0,\"height\":0,\"clientName\":\"\",\"vol\":\"0\",\"pageId\":1,\"pageIndex\":1,\"pageSize\":100,\"optType\":\"priceQuery_findQuotes\",\"payType\":\"PP\",\"destType\":0}", countryCode, weight)},
+		"body": []string{fmt.Sprintf("{\"transCategory\":\"\",\"goodsType\":\"\",\"packageType\":\"WPX\",\"goodsTypeName\":\"\",\"dest\":\"%s\",\"payment\":\"\",\"partnerCompanyNo\":\"%s\",\"clientNo\":\"\",\"postCode\":\"\",\"businessTypes\":\"\",\"declareMethod\":\"其他\",\"weight\":\"%v\",\"long\":0,\"width\":0,\"height\":0,\"clientName\":\"\",\"vol\":\"0\",\"pageId\":1,\"pageIndex\":1,\"pageSize\":100,\"optType\":\"priceQuery_findQuotes\",\"payType\":\"PP\",\"destType\":0}", countryCode, l.companyNo, weight)},
 	})
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -72,8 +88,8 @@ func (l LianDiFetcher) Fetch(ctx context.Context, config config.LoginConfig, cou
 	var res []model.Logistics
 	for _, data := range datas.Datas {
 		res = append(res, model.Logistics{
-			Source: "深圳市联递国际物流有限公司",
-			URL:    "https://www.i-oms.cn/#/tmslogin?companyNo=lde",
+			Source: l.source,
+			URL:    l.url,
 			Method: data.TransTypeName,
 			Weight: data.Weight,
 			Total:  data.TotalCharge,
@@ -86,10 +102,10 @@ func (l LianDiFetcher) Fetch(ctx context.Context, config config.LoginConfig, cou
 	return res, nil
 }
 
-func (l LianDiFetcher) getToken(ctx context.Context, config config.LoginConfig) (string, error) {
+func (l IOMSFetcher) getToken(ctx context.Context, config config.LoginConfig) (string, error) {
 	m := url.Values{
 		"head": []string{"{\"appid\":\"LeonPC\",\"device_id\":\"Leon\",\"command\":\"tmsLogin\",\"version\":\"1.0\",\"token\":null,\"sign\":\"\",\"encrypt_type\":0}"},
-		"body": []string{fmt.Sprintf("{\"userNo\":\"%s\",\"password\":\"%s\",\"companyNo\":\"lde\",\"domainName\":\"\"}", config.Username, config.Password)},
+		"body": []string{fmt.Sprintf("{\"userNo\":\"%s\",\"password\":\"%s\",\"companyNo\":\"%s\",\"domainName\":\"\"}", config.Username, config.Password, l.companyNo)},
 	}
 	resp, err := l.client.PostForm("https://www.i-oms.cn/user-center/tmsLogin/1.0", m)
 	if err != nil {
