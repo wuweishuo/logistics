@@ -10,7 +10,6 @@ import (
 	_ "logistics/fetcher/impl"
 	"logistics/model"
 	"os"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -25,9 +24,11 @@ import (
 )
 
 func main() {
-	log.Logger = zerolog.New(zerolog.NewConsoleWriter()).With().Timestamp().Stack().Caller().Logger()
+	log.Logger = zerolog.New(zerolog.NewConsoleWriter()).With().Timestamp().Stack().Caller().Logger().Level(zerolog.Disabled)
+	if os.Getenv("LOG_DEBUG") == "debug" {
+		log.Logger = log.Logger.Level(zerolog.InfoLevel)
+	}
 	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
-
 	var cmd string
 	flag.StringVar(&cmd, "c", "query", "input your cmd")
 	var countryName string
@@ -74,7 +75,7 @@ func listCountry(countryName string) {
 
 func query(countryCode string, weight float64, configFile string, sources []string) {
 	startTime := time.Now()
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 35*time.Second)
 	defer cancel()
 	var c config.Config
 	err := configor.Load(&c, configFile)
@@ -91,7 +92,8 @@ func query(countryCode string, weight float64, configFile string, sources []stri
 	}
 	channel := make(chan fetcherResult)
 	taskChannel := make(chan string, len(fetcher.GetRegistry()))
-	concurrent := runtime.NumCPU() * 2
+	concurrent := 4
+	log.Info().Msgf("concurrent:%d", concurrent)
 	for i := 0; i < concurrent; i++ {
 		go func(ctx context.Context) {
 			for true {
@@ -185,9 +187,9 @@ func query(countryCode string, weight float64, configFile string, sources []stri
 	}
 
 	writer := tablewriter.NewWriter(os.Stdout)
-	writer.SetHeader([]string{"来源", "url", "渠道", "重量", "总价", "单价", "运费", "燃油", "其他杂费", "备注"})
+	writer.SetHeader([]string{"来源", "url", "渠道", "重量", "总价", "单价", "运费", "燃油", "其他杂费"})
 	writer.SetFooter([]string{
-		"", "",
+		"",
 		"timeout", strings.Join(timeout, ","),
 		"errors", strings.Join(errorName, ","),
 		"cost_time", fmt.Sprintf("%vs", time.Since(startTime).Seconds()),
@@ -205,7 +207,6 @@ func query(countryCode string, weight float64, configFile string, sources []stri
 			fmt.Sprintf("%v", d.Fare),
 			fmt.Sprintf("%v", d.Fuel),
 			fmt.Sprintf("%v", d.Other),
-			"",
 		})
 	}
 	writer.AppendBulk(data)

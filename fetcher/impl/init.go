@@ -7,6 +7,7 @@ func init() {
 	fetcher.Register("三通", NewSanTongFetcher())
 	fetcher.Register("环邦", NewHBFetcher())
 	fetcher.Register("汇通天下", NewHTTXFetcher())
+	fetcher.Register("百顺达", NewBSDFetcher())
 
 	// k5 不需登陆
 	fetcher.Register("柏林华惠", NewBailinHuaHuiFetcher())
