@@ -1,12 +1,8 @@
 package impl
 
-import "C"
 import (
 	"context"
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 	"logistics/config"
 	"logistics/model"
 	"net/http"
@@ -14,6 +10,10 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/PuerkitoBio/goquery"
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 type CXFetcher struct {

@@ -13,6 +13,7 @@
 
 .idea
 bin
+.vscode
 
 config/config.test.yml
 
