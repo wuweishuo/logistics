@@ -50,4 +50,6 @@ func init() {
 	fetcher.Register("加时特", NewJSTFetcher())
 	fetcher.Register("乐凯龙", NewLKLFetcher())
 	fetcher.Register("众鑫", NewQHZXFetcher())
+
+	fetcher.RegisterFetcherFactory("itdida", ItDiDaFetcherFactory{})
 }

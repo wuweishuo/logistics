@@ -89,24 +89,24 @@ func (c CXFetcher) Fetch(ctx context.Context, config config.LoginConfig, country
 		if td[0] == "无记录" {
 			return false
 		}
-		total, err := strconv.ParseFloat(td[c.totalIdx], 10)
+		total, err := strconv.ParseFloat(td[c.totalIdx], 64)
 		if err != nil {
 			log.Err(errors.WithStack(err)).Msgf("%s has err", c.source)
 			return true
 		}
-		weight, err := strconv.ParseFloat(td[c.weightIdx], 10)
+		weight, err := strconv.ParseFloat(td[c.weightIdx], 64)
 		if err != nil {
 			log.Err(errors.WithStack(err)).Msgf("%s has err", c.source)
 			return true
 		}
-		price, err := strconv.ParseFloat(td[c.priceIdx], 10)
+		price, err := strconv.ParseFloat(td[c.priceIdx], 64)
 		if err != nil {
 			log.Err(errors.WithStack(err)).Msgf("%s has err", c.source)
 			return true
 		}
 		var fuel float64
 		if td[c.fuelIdx] != "含燃油" {
-			fuel, err = strconv.ParseFloat(td[c.fuelIdx], 10)
+			fuel, err = strconv.ParseFloat(td[c.fuelIdx], 64)
 			if err != nil {
 				log.Err(errors.WithStack(err)).Msgf("%s has err", c.source)
 				return true

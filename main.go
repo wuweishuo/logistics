@@ -10,6 +10,7 @@ import (
 	_ "logistics/fetcher/impl"
 	"logistics/model"
 	"os"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -38,7 +39,7 @@ func main() {
 	var weight float64
 	flag.Float64Var(&weight, "weight", 1, "input your weight")
 	var configFile string
-	flag.StringVar(&configFile, "configFile", "./config/config.yml", "input your config file")
+	flag.StringVar(&configFile, "configFile", "config.yml", "input your config file")
 	var sourceStr string
 	flag.StringVar(&sourceStr, "sources", "", "input your source")
 	flag.Parse()
@@ -77,6 +78,7 @@ func query(countryCode string, weight float64, configFile string, sources []stri
 	startTime := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 35*time.Second)
 	defer cancel()
+
 	var c config.Config
 	err := configor.Load(&c, configFile)
 	if err != nil {
@@ -211,4 +213,17 @@ func query(countryCode string, weight float64, configFile string, sources []stri
 	}
 	writer.AppendBulk(data)
 	writer.Render()
+}
+
+func getConfig() interface{} {
+	var fieldDef []reflect.StructField
+	for name, fetcherFactory := range fetcher.GetFetcherFactoryRegistry() {
+		fieldDef = append(fieldDef, reflect.StructField{
+			Name: strings.ToUpper(name),
+			Type: reflect.MapOf(reflect.TypeOf(""), reflect.TypeOf(fetcherFactory.ConstructConfig())),
+			Tag:  reflect.StructTag(fmt.Sprintf(`yaml:%s`, name)),
+		})
+	}
+	typ := reflect.StructOf(fieldDef)
+	return reflect.New(typ).Interface()
 }

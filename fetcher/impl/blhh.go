@@ -3,9 +3,6 @@ package impl
 import (
 	"context"
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 	"logistics/config"
 	"logistics/enums"
 	"logistics/model"
@@ -13,6 +10,10 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/PuerkitoBio/goquery"
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 type BailinHuaHuiFetcher struct {
@@ -63,25 +64,25 @@ func (b BailinHuaHuiFetcher) Fetch(ctx context.Context, config config.LoginConfi
 			notFoundRecord = true
 			return
 		}
-		weight, err := strconv.ParseFloat(td[1], 10)
+		weight, err := strconv.ParseFloat(td[1], 64)
 		if err != nil {
 			log.Err(errors.WithStack(err)).Msgf("%s has err", b.source)
 			return
 		}
 		var total, price float64
 		if b.hasPrice {
-			total, err = strconv.ParseFloat(td[3], 10)
+			total, err = strconv.ParseFloat(td[3], 64)
 			if err != nil {
 				log.Err(errors.WithStack(err)).Msgf("%s has err", b.source)
 				return
 			}
-			price, err = strconv.ParseFloat(td[2], 10)
+			price, err = strconv.ParseFloat(td[2], 64)
 			if err != nil {
 				log.Err(errors.WithStack(err)).Msgf("%s has err", b.source)
 				return
 			}
 		} else {
-			total, err = strconv.ParseFloat(td[2], 10)
+			total, err = strconv.ParseFloat(td[2], 64)
 			if err != nil {
 				log.Err(errors.WithStack(err)).Msgf("%s has err", b.source)
 				return

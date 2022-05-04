@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
 	"logistics/config"
 	"logistics/model"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
 	"strconv"
+
+	"github.com/pkg/errors"
 )
 
 type HTTXFetcher struct {
@@ -64,23 +65,23 @@ func (h HTTXFetcher) Fetch(ctx context.Context, config config.LoginConfig, count
 	}
 	var res []model.Logistics
 	for _, d := range queryResp.Data {
-		total, err := strconv.ParseFloat(d.Totalprice, 10)
+		total, err := strconv.ParseFloat(d.Totalprice, 64)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
-		price, err := strconv.ParseFloat(d.Price, 10)
+		price, err := strconv.ParseFloat(d.Price, 64)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
-		freight, err := strconv.ParseFloat(d.Freight, 10)
+		freight, err := strconv.ParseFloat(d.Freight, 64)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
-		tax, err := strconv.ParseFloat(d.Tax, 10)
+		tax, err := strconv.ParseFloat(d.Tax, 64)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
-		other, err := strconv.ParseFloat(d.Otherfee, 10)
+		other, err := strconv.ParseFloat(d.Otherfee, 64)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}

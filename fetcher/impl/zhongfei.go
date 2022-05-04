@@ -3,9 +3,6 @@ package impl
 import (
 	"context"
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 	"logistics/config"
 	"logistics/model"
 	"net/http"
@@ -13,6 +10,10 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/PuerkitoBio/goquery"
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 type ZhongFeiFetcher struct {
@@ -73,32 +74,32 @@ func (z ZhongFeiFetcher) Fetch(ctx context.Context, config config.LoginConfig, c
 			selection.Find("td").Each(func(i int, selection *goquery.Selection) {
 				td = append(td, strings.TrimSpace(selection.Text()))
 			})
-			weight, err := strconv.ParseFloat(td[2], 10)
+			weight, err := strconv.ParseFloat(td[2], 64)
 			if err != nil {
 				log.Err(errors.WithStack(err)).Msg("")
 				return
 			}
-			total, err := strconv.ParseFloat(td[3], 10)
+			total, err := strconv.ParseFloat(td[3], 64)
 			if err != nil {
 				log.Err(errors.WithStack(err)).Msg("")
 				return
 			}
-			price, err := strconv.ParseFloat(td[4], 10)
+			price, err := strconv.ParseFloat(td[4], 64)
 			if err != nil {
 				log.Err(errors.WithStack(err)).Msg("")
 				return
 			}
-			fare, err := strconv.ParseFloat(td[5], 10)
+			fare, err := strconv.ParseFloat(td[5], 64)
 			if err != nil {
 				log.Err(errors.WithStack(err)).Msg("")
 				return
 			}
-			fuel, err := strconv.ParseFloat(td[6], 10)
+			fuel, err := strconv.ParseFloat(td[6], 64)
 			if err != nil {
 				log.Err(errors.WithStack(err)).Msg("")
 				return
 			}
-			other, err := strconv.ParseFloat(td[7], 10)
+			other, err := strconv.ParseFloat(td[7], 64)
 			if err != nil {
 				log.Err(errors.WithStack(err)).Msg("")
 				return

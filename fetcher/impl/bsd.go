@@ -442,19 +442,19 @@ func (b BSDFetcher) getFee(ctx context.Context, countryCode string, weight float
 	}
 	var res []model.Logistics
 	for _, row := range queryResp.Rows {
-		fare, err := strconv.ParseFloat(row.BaseFee, 10)
+		fare, err := strconv.ParseFloat(row.BaseFee, 64)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
-		calcWeight, err := strconv.ParseFloat(row.CalWeight, 10)
+		calcWeight, err := strconv.ParseFloat(row.CalWeight, 64)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
-		fuel, err := strconv.ParseFloat(row.FuelFee, 10)
+		fuel, err := strconv.ParseFloat(row.FuelFee, 64)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
-		total, err := strconv.ParseFloat(row.MinSaleAmountTotal, 10)
+		total, err := strconv.ParseFloat(row.MinSaleAmountTotal, 64)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
@@ -489,7 +489,7 @@ func (b BSDFetcher) getOtherFee(ctx context.Context, countryCode string, weight 
 		_ = resp.Body.Close()
 	}()
 	type QueryResp struct {
-		Fee float64 `json:fee`
+		Fee float64 `json:"fee"`
 	}
 	var queryResp []QueryResp
 	decoder := json.NewDecoder(resp.Body)

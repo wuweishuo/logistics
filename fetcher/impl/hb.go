@@ -4,9 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 	"logistics/config"
 	"logistics/model"
 	"net/http"
@@ -14,6 +11,10 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/PuerkitoBio/goquery"
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 type HBFetcher struct {
@@ -105,7 +106,7 @@ func (h HBFetcher) parseFloat(ctx context.Context, str string) (float64, error) 
 	if str == "-" {
 		return 0, nil
 	}
-	float, err := strconv.ParseFloat(str, 10)
+	float, err := strconv.ParseFloat(str, 64)
 	if err != nil {
 		log.Err(errors.WithStack(err)).Msg("")
 		return 0, errors.WithStack(err)
@@ -122,6 +123,9 @@ func (h HBFetcher) getParameters(ctx context.Context, countryCode string, weight
 		_ = resp.Body.Close()
 	}()
 	reader, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
 	return url.Values{
 		"txtCountry":           []string{countryCode},
 		"txtWeight":            []string{fmt.Sprintf("%v", weight)},
