@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
+	"gopkg.in/yaml.v3"
 	"io/ioutil"
-	"logistics/config"
+	"logistics/fetcher"
 	"logistics/model"
 	"net/http"
 	"net/http/cookiejar"
@@ -14,37 +15,50 @@ import (
 	"strings"
 )
 
+type SanTongFetcherConfig struct {
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+}
+
+func (s *SanTongFetcherConfig) Parse(value *yaml.Node) error {
+	return value.Decode(s)
+}
+
+type SanTongFetcherFactory struct{}
+
+func (s SanTongFetcherFactory) ConstructFetcher(config fetcher.FetcherConfig) (fetcher.Fetcher, error) {
+	fetcherConfig, ok := config.(*SanTongFetcherConfig)
+	if !ok {
+		return nil, errors.New("config not right")
+	}
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	return NewSanTongFetcher(*fetcherConfig, &http.Client{
+		Jar: jar,
+	}), nil
+}
+
+func (s SanTongFetcherFactory) ConstructConfig() fetcher.FetcherConfig {
+	return &SanTongFetcherConfig{}
+}
+
 // SanTongFetcher [三通订单系统](http://119.23.34.110:8088/)
 type SanTongFetcher struct {
+	config SanTongFetcherConfig
 	client *http.Client
 }
 
-type SanTongResp struct {
-	CountryCode string
-	Message     string
-	Total       int
-	Data        []struct {
-		ChargeWeight  float64
-		ServiceCnName string
-		TotalFee      float64
-		FreightFee    float64
-		FuelFee       float64
-		OtherFee      float64
-		Remark        string
-	}
-}
-
-func NewSanTongFetcher() *SanTongFetcher {
-	jar, _ := cookiejar.New(nil)
+func NewSanTongFetcher(config SanTongFetcherConfig, client *http.Client) *SanTongFetcher {
 	return &SanTongFetcher{
-		client: &http.Client{
-			Jar: jar,
-		},
+		config: config,
+		client: client,
 	}
 }
 
-func (s SanTongFetcher) Fetch(ctx context.Context, config config.LoginConfig, countryCode string, weight float64) ([]model.Logistics, error) {
-	err := s.login(ctx, config)
+func (s SanTongFetcher) Fetch(ctx context.Context, countryCode string, weight float64) ([]model.Logistics, error) {
+	err := s.login(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -68,6 +82,20 @@ func (s SanTongFetcher) Fetch(ctx context.Context, config config.LoginConfig, co
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
+	type SanTongResp struct {
+		CountryCode string
+		Message     string
+		Total       int
+		Data        []struct {
+			ChargeWeight  float64
+			ServiceCnName string
+			TotalFee      float64
+			FreightFee    float64
+			FuelFee       float64
+			OtherFee      float64
+			Remark        string
+		}
+	}
 	var data SanTongResp
 	err = json.Unmarshal(body, &data)
 	if err != nil {
@@ -76,7 +104,6 @@ func (s SanTongFetcher) Fetch(ctx context.Context, config config.LoginConfig, co
 	res := make([]model.Logistics, 0, data.Total)
 	for _, d := range data.Data {
 		res = append(res, model.Logistics{
-			Source: "三通订单系统",
 			URL:    "http://119.23.34.110:8088",
 			Method: d.ServiceCnName,
 			Weight: d.ChargeWeight,
@@ -90,10 +117,10 @@ func (s SanTongFetcher) Fetch(ctx context.Context, config config.LoginConfig, co
 	return res, nil
 }
 
-func (s SanTongFetcher) login(ctx context.Context, config config.LoginConfig) error {
+func (s SanTongFetcher) login(ctx context.Context) error {
 	resp, err := s.client.PostForm("http://119.23.34.110:8088/default/index/login", url.Values{
-		"userName": []string{config.Username},
-		"userPass": []string{config.Password},
+		"userName": []string{s.config.Username},
+		"userPass": []string{s.config.Password},
 	})
 	if err != nil {
 		return errors.WithStack(err)

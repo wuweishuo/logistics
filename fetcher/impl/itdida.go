@@ -4,47 +4,55 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/pkg/errors"
-	"logistics/config"
+	"gopkg.in/yaml.v3"
+	"logistics/fetcher"
 	"logistics/model"
 	"net/http"
-	"net/url"
+
+	"github.com/pkg/errors"
 )
 
-type YDFetcher struct {
-	ItDiDaFetcher
+type ItDiDaFetcherConfig struct {
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+	Domain   string `yaml:"domain"`
 }
 
-func NewYDFetcher() *YDFetcher {
-	return &YDFetcher{
-		NewItDiDaFetcher("YD", "http://1st.itdida.com/itdida-flash/website/landing",
-			"http://1st.itdida.com/itdida-api/login", "http://1st.itdida.com/itdida-api/flash/price/query"),
+func (i *ItDiDaFetcherConfig) Parse(value *yaml.Node) error {
+	return value.Decode(i)
+}
+
+type ItDiDaFetcherFactory struct{}
+
+func (i ItDiDaFetcherFactory) ConstructFetcher(config fetcher.FetcherConfig) (fetcher.Fetcher, error) {
+	c, ok := config.(*ItDiDaFetcherConfig)
+	if !ok {
+		return nil, errors.New("config not right")
 	}
+	return NewItDiDaFetcher(*c), nil
+}
+
+func (i ItDiDaFetcherFactory) ConstructConfig() fetcher.FetcherConfig {
+	return &ItDiDaFetcherConfig{}
 }
 
 type ItDiDaFetcher struct {
-	source   string
+	config   ItDiDaFetcherConfig
 	url      string
-	loginUrl string
 	queryUrl string
 	client   *http.Client
 }
 
-func NewItDiDaFetcher(source string, url string, loginUrl string, queryUrl string) ItDiDaFetcher {
+func NewItDiDaFetcher(config ItDiDaFetcherConfig) ItDiDaFetcher {
 	return ItDiDaFetcher{
-		source:   source,
-		url:      url,
-		loginUrl: loginUrl,
-		queryUrl: queryUrl,
+		config:   config,
+		url:      config.Domain + "/itdida-flash/website/landing",
+		queryUrl: config.Domain + "/itdida-api/flash/price/query",
 		client:   http.DefaultClient,
 	}
 }
 
-func (i ItDiDaFetcher) Fetch(ctx context.Context, config config.LoginConfig, countryCode string, weight float64) ([]model.Logistics, error) {
-	//token, err := i.login(ctx, config)
-	//if err != nil {
-	//	return nil, err
-	//}
+func (i ItDiDaFetcher) Fetch(ctx context.Context, countryCode string, weight float64) ([]model.Logistics, error) {
 	m := map[string]interface{}{
 		"searchType":    2,
 		"priceZoneType": 0,
@@ -55,7 +63,6 @@ func (i ItDiDaFetcher) Fetch(ctx context.Context, config config.LoginConfig, cou
 		"containerType": 1,
 		"unitModelList": []int{},
 		"countryCode":   countryCode,
-		//"websocketToken": token,
 	}
 	bb, err := json.Marshal(m)
 	if err != nil {
@@ -98,7 +105,6 @@ func (i ItDiDaFetcher) Fetch(ctx context.Context, config config.LoginConfig, cou
 	var res []model.Logistics
 	for _, data := range queryResp.Data {
 		res = append(res, model.Logistics{
-			Source: i.source,
 			URL:    i.url,
 			Method: data.ChannelName,
 			Total:  data.SummaryConversion,
@@ -110,32 +116,4 @@ func (i ItDiDaFetcher) Fetch(ctx context.Context, config config.LoginConfig, cou
 		})
 	}
 	return res, nil
-}
-
-func (i ItDiDaFetcher) login(ctx context.Context, loginConfig config.LoginConfig) (token string, err error) {
-	resp, err := i.client.PostForm(i.loginUrl, url.Values{
-		"username": []string{loginConfig.Username},
-		"password": []string{loginConfig.Password},
-	})
-	if err != nil {
-		return "", err
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-	type LoginResp struct {
-		Success    bool   `json:"success"`
-		StatusCode int    `json:"statusCode"`
-		Data       string `json:"data"`
-	}
-	var loginResp LoginResp
-	decoder := json.NewDecoder(resp.Body)
-	err = decoder.Decode(&loginResp)
-	if err != nil {
-		return "", errors.WithStack(err)
-	}
-	if !loginResp.Success {
-		return "", errors.New(loginResp.Data)
-	}
-	return loginResp.Data, nil
 }

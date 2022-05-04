@@ -4,6 +4,13 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/olekukonko/tablewriter"
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog/pkgerrors"
+	"gopkg.in/yaml.v3"
+	"io/ioutil"
 	"logistics/config"
 	"logistics/enums"
 	"logistics/fetcher"
@@ -14,13 +21,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/jinzhu/configor"
-	"github.com/olekukonko/tablewriter"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
-	"github.com/rs/zerolog/pkgerrors"
 )
 
 func main() {
@@ -38,7 +38,7 @@ func main() {
 	var weight float64
 	flag.Float64Var(&weight, "weight", 1, "input your weight")
 	var configFile string
-	flag.StringVar(&configFile, "configFile", "./config/config.yml", "input your config file")
+	flag.StringVar(&configFile, "configFile", "config.yml", "input your config file")
 	var sourceStr string
 	flag.StringVar(&sourceStr, "sources", "", "input your source")
 	flag.Parse()
@@ -77,8 +77,13 @@ func query(countryCode string, weight float64, configFile string, sources []stri
 	startTime := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 35*time.Second)
 	defer cancel()
+
 	var c config.Config
-	err := configor.Load(&c, configFile)
+	bs, err := ioutil.ReadFile(configFile)
+	if err != nil {
+		panic(err)
+	}
+	err = yaml.Unmarshal(bs, &c)
 	if err != nil {
 		panic(err)
 	}
@@ -91,72 +96,77 @@ func query(countryCode string, weight float64, configFile string, sources []stri
 		startTime time.Time
 	}
 	channel := make(chan fetcherResult)
-	taskChannel := make(chan string, len(fetcher.GetRegistry()))
-	concurrent := 4
-	log.Info().Msgf("concurrent:%d", concurrent)
-	for i := 0; i < concurrent; i++ {
-		go func(ctx context.Context) {
+	registry := fetcher.GetFetcherFactoryRegistry()
+	type task struct {
+		f    fetcher.Fetcher
+		name string
+	}
+	var count int
+	names := make(map[string]bool)
+	for k := range c {
+		factory, ok := registry[k]
+		if !ok {
+			continue
+		}
+		taskChannel := make(chan task, len(c[k]))
+		go func(ch chan task) {
 			for true {
 				select {
-				case name, ok := <-taskChannel:
+				case t, ok := <-ch:
 					if !ok {
 						return
 					}
-					func(name string) {
+					func(t task) {
 						startTime := time.Now()
 						defer func() {
 							err := recover()
 							if err != nil {
 								channel <- fetcherResult{
-									name:      name,
+									name:      t.name,
 									data:      nil,
 									err:       errors.Errorf("panic:%+v", err),
 									startTime: startTime,
 								}
 							}
 						}()
-						if _, ok := c.Logins[name]; !ok {
-							channel <- fetcherResult{
-								name:      name,
-								data:      nil,
-								err:       errors.Errorf("%s hasn't config", name),
-								startTime: startTime,
-							}
-							return
-						}
-						data, err := fetcher.GetRegistry()[name].Fetch(ctx, c.Logins[name], countryCode, weight)
+						data, err := t.f.Fetch(ctx, countryCode, weight)
 						channel <- fetcherResult{
-							name:      name,
+							name:      t.name,
 							data:      data,
 							err:       err,
 							startTime: startTime,
 						}
-					}(name)
+					}(t)
 				case <-ctx.Done():
 					return
-
 				}
 			}
-		}(ctx)
-	}
-	var count int
-	names := make(map[string]bool)
-	for name := range fetcher.GetRegistry() {
-		if len(sources) != 0 {
-			for _, source := range sources {
-				if source == name {
-					taskChannel <- name
-					count++
-					names[name] = true
+		}(taskChannel)
+		for name, fetcherConfig := range c[k] {
+			match := len(sources) == 0
+			if len(sources) != 0 {
+				for _, source := range sources {
+					if source == name {
+						match = true
+					}
 				}
 			}
-		} else {
-			taskChannel <- name
-			count++
-			names[name] = true
+			if match {
+				f, err := factory.ConstructFetcher(fetcherConfig)
+				if err != nil {
+					log.Err(err).Stack().Msgf("%s construct err", name)
+					continue
+				}
+				taskChannel <- task{
+					name: name,
+					f:    f,
+				}
+				count++
+				names[name] = true
+			}
 		}
+		close(taskChannel)
 	}
-	close(taskChannel)
 	var errorName []string
 	for i := 0; i < count; i++ {
 		select {

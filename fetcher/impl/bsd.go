@@ -4,7 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"logistics/config"
+	"gopkg.in/yaml.v3"
+	"logistics/fetcher"
 	"logistics/model"
 	"net/http"
 	"net/http/cookiejar"
@@ -15,17 +16,45 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+type BSDFetcherConfig struct {
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+}
+
+func (b *BSDFetcherConfig) Parse(node *yaml.Node) error {
+	return node.Decode(b)
+}
+
+type BSDFetcherFactory struct{}
+
+func (B BSDFetcherFactory) ConstructFetcher(config fetcher.FetcherConfig) (fetcher.Fetcher, error) {
+	fetcherConfig, ok := config.(*BSDFetcherConfig)
+	if !ok {
+		return nil, errors.New("config not right")
+	}
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	return NewBSDFetcher(*fetcherConfig, &http.Client{
+		Jar: jar,
+	}), nil
+}
+
+func (B BSDFetcherFactory) ConstructConfig() fetcher.FetcherConfig {
+	return &BSDFetcherConfig{}
+}
+
 type BSDFetcher struct {
+	config BSDFetcherConfig
 	client *http.Client
 	ids    map[string]int
 }
 
-func NewBSDFetcher() *BSDFetcher {
-	jar, _ := cookiejar.New(nil)
+func NewBSDFetcher(config BSDFetcherConfig, client *http.Client) *BSDFetcher {
 	return &BSDFetcher{
-		client: &http.Client{
-			Jar: jar,
-		},
+		config: config,
+		client: client,
 		ids: map[string]int{
 			"1U": 335,
 			"2U": 336,
@@ -369,8 +398,8 @@ func NewBSDFetcher() *BSDFetcher {
 	}
 }
 
-func (b BSDFetcher) Fetch(ctx context.Context, config config.LoginConfig, countryCode string, weight float64) ([]model.Logistics, error) {
-	err := b.login(ctx, config)
+func (b BSDFetcher) Fetch(ctx context.Context, countryCode string, weight float64) ([]model.Logistics, error) {
+	err := b.login(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -390,10 +419,10 @@ func (b BSDFetcher) Fetch(ctx context.Context, config config.LoginConfig, countr
 	return res, nil
 }
 
-func (b BSDFetcher) login(ctx context.Context, loginConfig config.LoginConfig) error {
+func (b BSDFetcher) login(ctx context.Context) error {
 	resp, err := b.client.PostForm("http://mis.bsdexp.com/login", url.Values{
-		"Username": []string{loginConfig.Username},
-		"Password": []string{loginConfig.Password},
+		"Username": []string{b.config.Username},
+		"Password": []string{b.config.Password},
 	})
 	if err != nil {
 		return errors.WithStack(err)
@@ -442,19 +471,19 @@ func (b BSDFetcher) getFee(ctx context.Context, countryCode string, weight float
 	}
 	var res []model.Logistics
 	for _, row := range queryResp.Rows {
-		fare, err := strconv.ParseFloat(row.BaseFee, 10)
+		fare, err := strconv.ParseFloat(row.BaseFee, 64)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
-		calcWeight, err := strconv.ParseFloat(row.CalWeight, 10)
+		calcWeight, err := strconv.ParseFloat(row.CalWeight, 64)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
-		fuel, err := strconv.ParseFloat(row.FuelFee, 10)
+		fuel, err := strconv.ParseFloat(row.FuelFee, 64)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
-		total, err := strconv.ParseFloat(row.MinSaleAmountTotal, 10)
+		total, err := strconv.ParseFloat(row.MinSaleAmountTotal, 64)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
@@ -489,7 +518,7 @@ func (b BSDFetcher) getOtherFee(ctx context.Context, countryCode string, weight 
 		_ = resp.Body.Close()
 	}()
 	type QueryResp struct {
-		Fee float64 `json:fee`
+		Fee float64 `json:"fee"`
 	}
 	var queryResp []QueryResp
 	decoder := json.NewDecoder(resp.Body)

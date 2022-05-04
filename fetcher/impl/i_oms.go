@@ -5,46 +5,60 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
-	"logistics/config"
+	"gopkg.in/yaml.v3"
+	"logistics/fetcher"
 	"logistics/model"
 	"net/http"
 	"net/url"
 )
 
-// IOMSFetcher 联递国际物流，https://www.i-oms.cn/#/tmslogin?companyNo=lde
-type LDEFetcher struct {
-	IOMSFetcher
+type IOMSFetcherConfig struct {
+	Username  string `yaml:"username"`
+	Password  string `yaml:"password"`
+	CompanyNo string `yaml:"company_no"`
+}
+
+func (i *IOMSFetcherConfig) Parse(value *yaml.Node) error {
+	return value.Decode(i)
+}
+
+type IOMSFetcherFactory struct{}
+
+func (I IOMSFetcherFactory) ConstructFetcher(config fetcher.FetcherConfig) (fetcher.Fetcher, error) {
+	fetcherConfig, ok := config.(*IOMSFetcherConfig)
+	if !ok {
+		return nil, errors.New("config not right")
+	}
+	return NewIOMSFetcher(*fetcherConfig), nil
+}
+
+func (I IOMSFetcherFactory) ConstructConfig() fetcher.FetcherConfig {
+	return &IOMSFetcherConfig{}
 }
 
 type IOMSFetcher struct {
-	source    string
+	config    IOMSFetcherConfig
 	url       string
 	companyNo string
 	client    *http.Client
 }
 
-func NewLDEFetcher() *LDEFetcher {
-	return &LDEFetcher{
-		NewIOMSFetcher("LDE"),
-	}
-}
-
-func NewIOMSFetcher(companyNo string) IOMSFetcher {
-	return IOMSFetcher{
-		source:    companyNo,
-		url:       fmt.Sprintf("https://www.i-oms.cn/#/tmslogin?companyNo=%s", companyNo),
-		companyNo: companyNo,
+func NewIOMSFetcher(config IOMSFetcherConfig) *IOMSFetcher {
+	return &IOMSFetcher{
+		config:    config,
+		url:       fmt.Sprintf("https://www.i-oms.cn/#/tmslogin?companyNo=%s", config.CompanyNo),
+		companyNo: config.CompanyNo,
 		client:    http.DefaultClient,
 	}
 }
 
-type LianDiResp struct {
+type IOMSResp struct {
 	ResultCode int    `json:"result_code"`
 	Message    string `json:"message"`
 	Body       string `json:"body"`
 }
 
-type LianDiQueryData struct {
+type IOMSQueryData struct {
 	Datas []struct {
 		TransTypeName   string  `json:"transTypeName"`
 		UnitPrice       float64 `json:"unitPrice"`
@@ -56,8 +70,8 @@ type LianDiQueryData struct {
 	} `json:"datas"`
 }
 
-func (l IOMSFetcher) Fetch(ctx context.Context, config config.LoginConfig, countryCode string, weight float64) ([]model.Logistics, error) {
-	token, err := l.getToken(ctx, config)
+func (l IOMSFetcher) Fetch(ctx context.Context, countryCode string, weight float64) ([]model.Logistics, error) {
+	token, err := l.getToken(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +85,7 @@ func (l IOMSFetcher) Fetch(ctx context.Context, config config.LoginConfig, count
 	defer func() {
 		_ = resp.Body.Close()
 	}()
-	var lianDiResp LianDiResp
+	var lianDiResp IOMSResp
 	decoder := json.NewDecoder(resp.Body)
 	err = decoder.Decode(&lianDiResp)
 	if err != nil {
@@ -80,7 +94,7 @@ func (l IOMSFetcher) Fetch(ctx context.Context, config config.LoginConfig, count
 	if lianDiResp.ResultCode != 0 {
 		return nil, errors.New(lianDiResp.Message)
 	}
-	var datas LianDiQueryData
+	var datas IOMSQueryData
 	err = json.Unmarshal([]byte(lianDiResp.Body), &datas)
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -88,7 +102,6 @@ func (l IOMSFetcher) Fetch(ctx context.Context, config config.LoginConfig, count
 	var res []model.Logistics
 	for _, data := range datas.Datas {
 		res = append(res, model.Logistics{
-			Source: l.source,
 			URL:    l.url,
 			Method: data.TransTypeName,
 			Weight: data.Weight,
@@ -102,10 +115,10 @@ func (l IOMSFetcher) Fetch(ctx context.Context, config config.LoginConfig, count
 	return res, nil
 }
 
-func (l IOMSFetcher) getToken(ctx context.Context, config config.LoginConfig) (string, error) {
+func (l IOMSFetcher) getToken(ctx context.Context) (string, error) {
 	m := url.Values{
 		"head": []string{"{\"appid\":\"LeonPC\",\"device_id\":\"Leon\",\"command\":\"tmsLogin\",\"version\":\"1.0\",\"token\":null,\"sign\":\"\",\"encrypt_type\":0}"},
-		"body": []string{fmt.Sprintf("{\"userNo\":\"%s\",\"password\":\"%s\",\"companyNo\":\"%s\",\"domainName\":\"\"}", config.Username, config.Password, l.companyNo)},
+		"body": []string{fmt.Sprintf("{\"userNo\":\"%s\",\"password\":\"%s\",\"companyNo\":\"%s\",\"domainName\":\"\"}", l.config.Username, l.config.Password, l.companyNo)},
 	}
 	resp, err := l.client.PostForm("https://www.i-oms.cn/user-center/tmsLogin/1.0", m)
 	if err != nil {
@@ -114,7 +127,7 @@ func (l IOMSFetcher) getToken(ctx context.Context, config config.LoginConfig) (s
 	defer func() {
 		_ = resp.Body.Close()
 	}()
-	var loginMsg LianDiResp
+	var loginMsg IOMSResp
 	decoder := json.NewDecoder(resp.Body)
 	err = decoder.Decode(&loginMsg)
 	if err != nil {

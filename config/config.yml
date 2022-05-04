@@ -1,4 +1,4 @@
-logins:
-  "mock":
-    "username": "test"
-    "password": "password"
+itdida:
+  mock:
+    username: "test"
+    password: "password"

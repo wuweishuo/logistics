@@ -2,22 +2,31 @@ package fetcher
 
 import (
 	"context"
-	"logistics/config"
+	"gopkg.in/yaml.v3"
 	"logistics/model"
 )
 
+type FetcherConfig interface {
+	Parse(node *yaml.Node) error
+}
+
+type FetcherFactory interface {
+	ConstructFetcher(config FetcherConfig) (Fetcher, error)
+	ConstructConfig() FetcherConfig
+}
+
 type Fetcher interface {
-	Fetch(ctx context.Context, config config.LoginConfig, countryCode string, weight float64) ([]model.Logistics, error)
+	Fetch(ctx context.Context, countryCode string, weight float64) ([]model.Logistics, error)
 }
 
-var registry = make(Registry)
+type FetcherFactoryRegistry map[string]FetcherFactory
 
-func GetRegistry() Registry {
-	return registry
+var fetcherFactoryRegistry = make(FetcherFactoryRegistry)
+
+func GetFetcherFactoryRegistry() FetcherFactoryRegistry {
+	return fetcherFactoryRegistry
 }
 
-func Register(name string, fetcher Fetcher) {
-	registry[name] = fetcher
+func RegisterFetcherFactory(name string, factory FetcherFactory) {
+	fetcherFactoryRegistry[name] = factory
 }
-
-type Registry map[string]Fetcher
