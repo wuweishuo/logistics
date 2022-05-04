@@ -4,13 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
 	"logistics/config"
 	"logistics/model"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
 	"strconv"
+
+	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 )
 
 type BSDFetcher struct {
@@ -372,6 +374,40 @@ func (b BSDFetcher) Fetch(ctx context.Context, config config.LoginConfig, countr
 	if err != nil {
 		return nil, err
 	}
+	res, err := b.getFee(ctx, countryCode, weight)
+	if err != nil {
+		return nil, err
+
+	}
+	for i := range res {
+		otherFee, err := b.getOtherFee(ctx, countryCode, weight, res[i].Method)
+		if err != nil {
+			return nil, err
+		}
+		res[i].Other = otherFee.InexactFloat64()
+		res[i].Total = otherFee.Add(decimal.NewFromFloat(res[i].Total)).InexactFloat64()
+	}
+	return res, nil
+}
+
+func (b BSDFetcher) login(ctx context.Context, loginConfig config.LoginConfig) error {
+	resp, err := b.client.PostForm("http://mis.bsdexp.com/login", url.Values{
+		"Username": []string{loginConfig.Username},
+		"Password": []string{loginConfig.Password},
+	})
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	if resp.Request.Method != http.MethodGet {
+		return errors.New("登录失败")
+	}
+	return nil
+}
+
+func (b BSDFetcher) getFee(ctx context.Context, countryCode string, weight float64) ([]model.Logistics, error) {
 	resp, err := b.client.PostForm("http://mis.bsdexp.com/FeeSearch/GetFee", url.Values{
 		"sTargetCountryID": []string{fmt.Sprintf("%d", b.ids[countryCode])},
 		"sStage":           []string{fmt.Sprintf("%v", weight)},
@@ -383,18 +419,16 @@ func (b BSDFetcher) Fetch(ctx context.Context, config config.LoginConfig, countr
 	defer func() {
 		_ = resp.Body.Close()
 	}()
-	if resp.Request.Method == http.MethodGet {
-		return nil, errors.New("登录失败")
-	}
 	type QueryResp struct {
 		Total  int    `json:"total"`
 		Errors string `json:"errors"`
 		Rows   []struct {
-			Algo      string `json:"Algo"`
-			CHCnName  string `json:"CHCnName"`
-			BaseFee   string `json:"BaseFee"`
-			CalWeight string `json:"CalWeight"`
-			FuelFee   string `json:"FuelFee"`
+			Algo               string `json:"Algo"`
+			MinSaleAmountTotal string `json:"MinSaleAmountTotal"`
+			CHCnName           string `json:"CHCnName"`
+			BaseFee            string `json:"BaseFee"`
+			CalWeight          string `json:"CalWeight"`
+			FuelFee            string `json:"FuelFee"`
 		} `json:"rows"`
 	}
 	var queryResp QueryResp
@@ -420,10 +454,14 @@ func (b BSDFetcher) Fetch(ctx context.Context, config config.LoginConfig, countr
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
+		total, err := strconv.ParseFloat(row.MinSaleAmountTotal, 10)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
 		res = append(res, model.Logistics{
 			URL:    "http://mis.bsdexp.com/Account",
 			Method: row.CHCnName,
-			Total:  fare + fuel,
+			Total:  total,
 			Weight: calcWeight,
 			Fuel:   fuel,
 			Fare:   fare,
@@ -433,16 +471,35 @@ func (b BSDFetcher) Fetch(ctx context.Context, config config.LoginConfig, countr
 	return res, nil
 }
 
-func (b BSDFetcher) login(ctx context.Context, loginConfig config.LoginConfig) error {
-	resp, err := b.client.PostForm("http://mis.bsdexp.com/login", url.Values{
-		"Username": []string{loginConfig.Username},
-		"Password": []string{loginConfig.Password},
+func (b BSDFetcher) getOtherFee(ctx context.Context, countryCode string, weight float64, cemskind string) (decimal.Decimal, error) {
+	resp, err := b.client.PostForm("http://mis.bsdexp.com/FeeSearch/GetOtherFee", url.Values{
+		"cemskind":                []string{cemskind},
+		"CountryId":               []string{fmt.Sprintf("%d", b.ids[countryCode])},
+		"fweight":                 []string{fmt.Sprintf("%v", weight)},
+		"tariff":                  []string{"关税"},
+		"goodsRules":              []string{"货物规则"},
+		"cancelAfterVerification": []string{"核销"},
+		"deliverytype":            []string{"交付确认"},
+		"caddrfrom":               []string{"深圳分拨中心"},
 	})
 	if err != nil {
-		return errors.WithStack(err)
+		return decimal.Zero, errors.WithStack(err)
 	}
 	defer func() {
 		_ = resp.Body.Close()
 	}()
-	return nil
+	type QueryResp struct {
+		Fee float64 `json:fee`
+	}
+	var queryResp []QueryResp
+	decoder := json.NewDecoder(resp.Body)
+	err = decoder.Decode(&queryResp)
+	if err != nil {
+		return decimal.Zero, errors.WithStack(err)
+	}
+	var otherFee decimal.Decimal
+	for _, v := range queryResp {
+		otherFee = otherFee.Add(decimal.NewFromFloat(v.Fee))
+	}
+	return otherFee, nil
 }
