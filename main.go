@@ -17,6 +17,7 @@ import (
 	_ "logistics/fetcher/impl"
 	"logistics/model"
 	"os"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -221,4 +222,17 @@ func query(countryCode string, weight float64, configFile string, sources []stri
 	}
 	writer.AppendBulk(data)
 	writer.Render()
+}
+
+func getConfig() interface{} {
+	var fieldDef []reflect.StructField
+	for name, fetcherFactory := range fetcher.GetFetcherFactoryRegistry() {
+		fieldDef = append(fieldDef, reflect.StructField{
+			Name: strings.ToUpper(name),
+			Type: reflect.MapOf(reflect.TypeOf(""), reflect.TypeOf(fetcherFactory.ConstructConfig())),
+			Tag:  reflect.StructTag(fmt.Sprintf(`yaml:%s`, name)),
+		})
+	}
+	typ := reflect.StructOf(fieldDef)
+	return reflect.New(typ).Interface()
 }
