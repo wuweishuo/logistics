@@ -4,12 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/olekukonko/tablewriter"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
-	"github.com/rs/zerolog/pkgerrors"
-	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"logistics/config"
 	"logistics/enums"
@@ -17,15 +11,21 @@ import (
 	_ "logistics/fetcher/impl"
 	"logistics/model"
 	"os"
-	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/olekukonko/tablewriter"
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog/pkgerrors"
+	"gopkg.in/yaml.v3"
 )
 
 func main() {
-	log.Logger = zerolog.New(zerolog.NewConsoleWriter()).With().Timestamp().Stack().Caller().Logger().Level(zerolog.Disabled)
+	log.Logger = zerolog.New(zerolog.NewConsoleWriter()).With().Timestamp().Stack().Caller().Logger().Level(zerolog.WarnLevel)
 	if os.Getenv("LOG_DEBUG") == "debug" {
 		log.Logger = log.Logger.Level(zerolog.InfoLevel)
 	}
@@ -76,7 +76,7 @@ func listCountry(countryName string) {
 
 func query(countryCode string, weight float64, configFile string, sources []string) {
 	startTime := time.Now()
-	ctx, cancel := context.WithTimeout(context.Background(), 35*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	var c config.Config
@@ -111,7 +111,7 @@ func query(countryCode string, weight float64, configFile string, sources []stri
 		}
 		taskChannel := make(chan task, len(c[k]))
 		go func(ch chan task) {
-			for true {
+			for {
 				select {
 				case t, ok := <-ch:
 					if !ok {
@@ -222,17 +222,4 @@ func query(countryCode string, weight float64, configFile string, sources []stri
 	}
 	writer.AppendBulk(data)
 	writer.Render()
-}
-
-func getConfig() interface{} {
-	var fieldDef []reflect.StructField
-	for name, fetcherFactory := range fetcher.GetFetcherFactoryRegistry() {
-		fieldDef = append(fieldDef, reflect.StructField{
-			Name: strings.ToUpper(name),
-			Type: reflect.MapOf(reflect.TypeOf(""), reflect.TypeOf(fetcherFactory.ConstructConfig())),
-			Tag:  reflect.StructTag(fmt.Sprintf(`yaml:%s`, name)),
-		})
-	}
-	typ := reflect.StructOf(fieldDef)
-	return reflect.New(typ).Interface()
 }

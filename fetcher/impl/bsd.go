@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"logistics/fetcher"
 	"logistics/model"
 	"net/http"
@@ -14,11 +13,17 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
+	"gopkg.in/yaml.v3"
 )
 
 type BSDFetcherConfig struct {
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
+	Username                string `yaml:"username"`
+	Password                string `yaml:"password"`
+	Tariff                  string `yaml:"tariff"`
+	GoodsRules              string `yaml:"goods_rules"`
+	CancelAfterVerification string `yaml:"cancel_after_verification"`
+	Deliverytype            string `yaml:"deliverytype"`
+	Caddrfrom               string `yaml:"caddrfrom"`
 }
 
 func (b *BSDFetcherConfig) Parse(node *yaml.Node) error {
@@ -505,11 +510,11 @@ func (b BSDFetcher) getOtherFee(ctx context.Context, countryCode string, weight 
 		"cemskind":                []string{cemskind},
 		"CountryId":               []string{fmt.Sprintf("%d", b.ids[countryCode])},
 		"fweight":                 []string{fmt.Sprintf("%v", weight)},
-		"tariff":                  []string{"关税"},
-		"goodsRules":              []string{"货物规则"},
-		"cancelAfterVerification": []string{"核销"},
-		"deliverytype":            []string{"交付确认"},
-		"caddrfrom":               []string{"深圳分拨中心"},
+		"tariff":                  []string{b.config.Tariff},
+		"goodsRules":              []string{b.config.GoodsRules},
+		"cancelAfterVerification": []string{b.config.CancelAfterVerification},
+		"deliverytype":            []string{b.config.Deliverytype},
+		"caddrfrom":               []string{b.config.Caddrfrom},
 	})
 	if err != nil {
 		return decimal.Zero, errors.WithStack(err)

@@ -3,7 +3,6 @@ package impl
 import (
 	"context"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"logistics/fetcher"
 	"logistics/model"
 	"net/http"
@@ -12,14 +11,17 @@ import (
 	"strconv"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/PuerkitoBio/goquery"
 	"github.com/pkg/errors"
 )
 
 type HLFetcherConfig struct {
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
-	Domain   string `yaml:"domain"`
+	Username string  `yaml:"username"`
+	Password string  `yaml:"password"`
+	Domain   string  `yaml:"domain"`
+	QueryUrl *string `yaml:"query_url"`
 }
 
 func (h *HLFetcherConfig) Parse(value *yaml.Node) error {
@@ -55,11 +57,15 @@ type HLFetcher struct {
 }
 
 func NewHLFetcher(client *http.Client, config HLFetcherConfig) *HLFetcher {
+	queryUrl := config.Domain + "/priceSearchQuery.htm"
+	if config.QueryUrl != nil {
+		queryUrl = *config.QueryUrl
+	}
 	return &HLFetcher{
 		config:   config,
 		url:      config.Domain + "/index.htm",
 		signUrl:  config.Domain + "/signin.htm",
-		queryUrl: config.Domain + "/priceSearchQuery.htm",
+		queryUrl: queryUrl,
 		client:   client,
 	}
 }
