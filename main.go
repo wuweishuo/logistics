@@ -170,23 +170,29 @@ func query(countryCode string, weight float64, configFile string, sources []stri
 	}
 	var errorName []string
 	for i := 0; i < count; i++ {
-		select {
-		case result := <-channel:
-			delete(names, result.name)
-			if result.err != nil {
-				errorName = append(errorName, result.name)
-				log.Err(result.err).Stack().Msgf("num:%d name:%s has err, cost time:%v s", i, result.name, time.Since(result.startTime).Seconds())
-				continue
+		if !func() bool {
+			select {
+			case result := <-channel:
+				delete(names, result.name)
+				if result.err != nil {
+					errorName = append(errorName, result.name)
+					log.Err(result.err).Stack().Msgf("num:%d name:%s has err, cost time:%v s", i, result.name, time.Since(result.startTime).Seconds())
+					return true
+				}
+				for _, data := range result.data {
+					data.Source = result.name
+					res = append(res, data)
+				}
+				log.Info().Msgf("num:%d name:%s success,cost time:%v s", i, result.name, time.Since(result.startTime).Seconds())
+				return true
+			case <-ctx.Done():
+				log.Info().Msg("timeout")
+				return false
 			}
-			for _, data := range result.data {
-				data.Source = result.name
-				res = append(res, data)
-			}
-			log.Info().Msgf("num:%d name:%s success,cost time:%v s", i, result.name, time.Since(result.startTime).Seconds())
-		case <-ctx.Done():
-			log.Info().Msgf("num:%d timeout", i)
+		}() {
 			break
 		}
+
 	}
 	close(channel)
 	sort.Slice(res, func(i, j int) bool {
