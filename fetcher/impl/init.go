@@ -13,4 +13,5 @@ func init() {
 	fetcher.RegisterFetcherFactory("httx", HTTXFetcherFactory{})
 	fetcher.RegisterFetcherFactory("bsd", BSDFetcherFactory{})
 	fetcher.RegisterFetcherFactory("v5", V5FetcherFactory{})
+	fetcher.RegisterFetcherFactory("zto", ZTOFetcherFactory{})
 }
