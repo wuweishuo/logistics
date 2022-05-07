@@ -3,7 +3,6 @@ package impl
 import "logistics/fetcher"
 
 func init() {
-	//fetcher.Register("mock", MockFetcher{})
 	fetcher.RegisterFetcherFactory("itdida", ItDiDaFetcherFactory{})
 	fetcher.RegisterFetcherFactory("i-oms", IOMSFetcherFactory{})
 	fetcher.RegisterFetcherFactory("hl", HLFetcherFactory{})
@@ -13,4 +12,6 @@ func init() {
 	fetcher.RegisterFetcherFactory("hb", HBFetcherFactory{})
 	fetcher.RegisterFetcherFactory("httx", HTTXFetcherFactory{})
 	fetcher.RegisterFetcherFactory("bsd", BSDFetcherFactory{})
+	fetcher.RegisterFetcherFactory("v5", V5FetcherFactory{})
+	fetcher.RegisterFetcherFactory("zto", ZTOFetcherFactory{})
 }
