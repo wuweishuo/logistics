@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
-	"gopkg.in/yaml.v3"
 	"logistics/fetcher"
 	"logistics/model"
 	"net/http"
 	"net/url"
+
+	"github.com/pkg/errors"
+	"gopkg.in/yaml.v3"
 )
 
 type IOMSFetcherConfig struct {
@@ -85,17 +86,17 @@ func (l IOMSFetcher) Fetch(ctx context.Context, countryCode string, weight float
 	defer func() {
 		_ = resp.Body.Close()
 	}()
-	var lianDiResp IOMSResp
+	var iOMSResp IOMSResp
 	decoder := json.NewDecoder(resp.Body)
-	err = decoder.Decode(&lianDiResp)
+	err = decoder.Decode(&iOMSResp)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	if lianDiResp.ResultCode != 0 {
-		return nil, errors.New(lianDiResp.Message)
+	if iOMSResp.ResultCode != 0 {
+		return nil, errors.New(iOMSResp.Message)
 	}
 	var datas IOMSQueryData
-	err = json.Unmarshal([]byte(lianDiResp.Body), &datas)
+	err = json.Unmarshal([]byte(iOMSResp.Body), &datas)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}

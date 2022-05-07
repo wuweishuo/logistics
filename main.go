@@ -39,7 +39,7 @@ func main() {
 	var weight float64
 	flag.Float64Var(&weight, "weight", 1, "input your weight")
 	var configFile string
-	flag.StringVar(&configFile, "configFile", "config.yml", "input your config file")
+	flag.StringVar(&configFile, "configFile", "", "input your config file")
 	var sourceStr string
 	flag.StringVar(&sourceStr, "sources", "", "input your source")
 	flag.Parse()
@@ -76,17 +76,24 @@ func listCountry(countryName string) {
 
 func query(countryCode string, weight float64, configFile string, sources []string) {
 	startTime := time.Now()
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
 	var c config.Config
-	bs, err := ioutil.ReadFile(configFile)
+	err := yaml.Unmarshal(config.DefaultFile, &c)
 	if err != nil {
 		panic(err)
 	}
-	err = yaml.Unmarshal(bs, &c)
-	if err != nil {
-		panic(err)
+	if configFile != "" {
+		var bs []byte
+		bs, err = ioutil.ReadFile(configFile)
+		if err != nil {
+			panic(err)
+		}
+		err = yaml.Unmarshal(bs, &c)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	var res []model.Logistics
